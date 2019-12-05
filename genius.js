@@ -1,193 +1,125 @@
-//variables
-userSeq = []
-simonSeq = []
-const NUM_OF_LEVELS = 20
-var id,
-  color,
-  level = 0
-var strict = false
-var error = false
-var gameOn = false //switch to turn game on or off
-var boardSound = [
-  "http://www.soundjay.com/button/sounds/button-4.mp3", //green
-  "http://www.soundjay.com/button/sounds/button-09.mp3", //red
-  "http://www.soundjay.com/button/sounds/button-10.mp3", //yellow
-  "http://www.soundjay.com/button/sounds/button-7.mp3" //blue
-]
+const MAX_LEVEL = 4
 
-//1- start board sequence
-$(document).ready(function() {
-  $(".display").text("")
-  $(".start").click(function() {
-    strict = false
-    error = false
-    level = 0
-    level++
-    simonSeq = []
-    userSeq = []
-    simonSequence()
-  })
+const Game = {
+  running: true,
+  level: 0,
+  userSequence: [],
+  gameSequence: [],
+}
 
-  //user pad listener
-  $(".pad").click(function() {
-    id = $(this).attr("id")
-    color = $(this)
-      .attr("class")
-      .split(" ")[1]
-    userSequence()
-  })
+const colors = ['green', 'red', 'yellow', 'blue']
+const sounds = {
+  green: 'https://s3.amazonaws.com/freecodecamp/simonSound1.mp3',
+  red: 'https://s3.amazonaws.com/freecodecamp/simonSound2.mp3',
+  yellow: 'https://s3.amazonaws.com/freecodecamp/simonSound4.mp3',
+  blue: 'https://s3.amazonaws.com/freecodecamp/simonSound3.mp3',
+}
 
-  //strict mode listener
-  $(".strict").click(function() {
-    level = 0
-    level++
-    simonSeq = []
-    userSeq = []
-    strict = true
-    simonSequence()
-  })
+const displayText = (text) => $('.display').text(text)
 
-  //listener for switch button
-  $(".switch").click(function() {
-    gameOn = gameOn == false ? true : false
-    console.log(gameOn)
-    if (gameOn) {
-      $(".inner-switch").addClass("inner-inactive")
-      $(".switch").addClass("outter-active")
-      $(".display").text("00")
-    } else {
-      $(".inner-switch").removeClass("inner-inactive")
-      $(".switch").removeClass("outter-active")
-      $(".display").text("")
-    }
-  })
-})
+const handleInput = (color) => {
+  setActiveClass(color)
+  Game.userSequence.push(color)
 
-//user sequence
-function userSequence() {
-  userSeq.push(id)
-  console.log(id + " " + color)
-  addClassSound(id, color)
-  //check user sequence
-  if (!checkUserSeq()) {
-    //if playing strict mode reset everything lol
-    if (strict) {
-      console.log("strict")
-      simonSeq = []
-      level = 1
-    }
-    error = true
-    displayError()
-    userSeq = []
-    simonSequence()
-  }
-  //checking end of sequence
-  else if (
-    userSeq.length == simonSeq.length &&
-    userSeq.length < NUM_OF_LEVELS
-  ) {
-    level++
-    userSeq = []
-    error = false
-    console.log("start simon")
-    simonSequence()
-  }
-  //checking for winners
-  if (userSeq.length == NUM_OF_LEVELS) {
-    displayWinner()
+  if (!checkUserSequence()) {
     resetGame()
+    showError()
+    return
+  }
+
+  if (Game.userSequence.length === Game.gameSequence.length) {
+    Game.level++
+    Game.userSequence = []
+
+    if (Game.level === MAX_LEVEL) {
+      resetGame()
+      showWin()
+      return
+    }
+
+    generateSequence()
   }
 }
 
-/* simon sequence */
-function simonSequence() {
-  console.log("level " + level)
-  $(".display").text(level)
-  if (!error) {
-    getRandomNum()
-  }
-  if (error && strict) {
-    getRandomNum()
-  }
-  var i = 0
-  var myInterval = setInterval(function() {
-    id = simonSeq[i]
-    color = $("#" + id).attr("class")
-    color = color.split(" ")[1]
-    console.log(id + " " + color)
-    addClassSound(id, color)
+const generateSequence = () => {
+  displayText(Game.level)
+
+  const color = getRandomColor()
+  Game.gameSequence.push(color)
+
+  let i = 0
+  const interval = setInterval(() => {
+    setActiveClass(Game.gameSequence[i])
     i++
-    if (i == simonSeq.length) {
-      clearInterval(myInterval)
+
+    if (i === Game.gameSequence.length) {
+      clearInterval(interval)
     }
   }, 1000)
 }
 
-//generate random number
-function getRandomNum() {
-  var random = Math.floor(Math.random() * 4)
-  simonSeq.push(random)
+const getRandomColor = () => {
+  const index = Math.floor(Math.random() * 4)
+  return colors[index]
 }
 
-/* add temporary class and sound  */
-function addClassSound(id, color) {
-  $("#" + id).addClass(color + "-active")
-  playSound(id)
-  setTimeout(function() {
-    $("#" + id).removeClass(color + "-active")
+const setActiveClass = (color) => {
+  const pad = $(`.${color}`)
+  const className = `${color}-active`
+
+  playSound(color)
+  pad.addClass(className)
+  setTimeout(() => {
+    pad.removeClass(className)
   }, 500)
 }
 
-/* checking user seq against simon's */
-function checkUserSeq() {
-  for (var i = 0; i < userSeq.length; i++) {
-    if (userSeq[i] != simonSeq[i]) {
+const checkUserSequence = () => {
+  for (let i = 0; i < Game.userSequence.length; i++) {
+    if (Game.userSequence[i] !== Game.gameSequence[i]) {
       return false
     }
   }
+
+  if (Game.gameSequence.length === Game.userSequence.length) {
+    const turingMachineTape = Game.gameSequence.concat(Game.userSequence)
+    const verifiedByTuringMachine = TuringMachine(turingMachineTape)
+    return verifiedByTuringMachine
+  }
+
   return true
 }
 
-/* display error  */
-function displayError() {
-  console.log("error")
-  var counter = 0
-  var myError = setInterval(function() {
-    $(".display").text("Err")
-    counter++
-    if (counter == 3) {
-      $(".display").text(level)
-      clearInterval(myError)
-      userSeq = []
-      counter = 0
-    }
+const startGame = () => {
+  resetGame()
+  Game.level = 1
+  generateSequence()
+}
+
+const resetGame = () => {
+  Game.userSequence = []
+  Game.gameSequence = []
+  Game.level = 0
+  displayText(Game.level)
+}
+
+const showError = () => {
+  displayText('ERRO')
+  const interval = setInterval(() => {
+    clearInterval(interval)
+    displayText('00')
   }, 500)
 }
 
-//display winner
-function displayWinner() {
-  var count = 0
-  var winInterval = setInterval(function() {
-    count++
-    $(".display").text("Win")
-    if (count == 5) {
-      clearInterval(winInterval)
-      $(".display").text("00")
-      count = 0
-    }
+const showWin = () => {
+  displayText('GANHOU!')
+  const interval = setInterval(() => {
+    clearInterval(interval)
+    displayText('00')
   }, 500)
 }
 
-/* play board sound */
-function playSound(id) {
-  var sound = new Audio(boardSound[id])
+const playSound = (color) => {
+  const sound = new Audio(sounds[color])
   sound.play()
-}
-
-/* reset game */
-function resetGame() {
-  userSeq = []
-  simonSeq = []
-  level = 0
-  $(".display").text("00")
 }
