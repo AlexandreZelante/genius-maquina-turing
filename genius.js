@@ -1,4 +1,4 @@
-const MAX_LEVEL = 4
+const MAX_LEVEL = 8
 
 const Game = {
   running: true,
